@@ -1,5 +1,6 @@
 from collections import UserDict
 from datetime import datetime
+import pickle
 
 
 class Field:
@@ -36,12 +37,17 @@ class Phone(Field):
 
 
 class Birthday(Field):
-    def is_valid(self, value):
+    def __init__(self, value):
+        if not self.is_valid(value):
+            raise ValueError('Invalid birthday format. Try DD-MM-YYYY.')
         super().__init__(value)
+
+    def is_valid(self, value):
         try:
             datetime.strptime(value, '%d-%m-%Y')
+            return True
         except ValueError:
-            print('Invalid birthday format. Try DD-MM-YYYY.')
+            return False
 
 
 class Record:
@@ -82,12 +88,12 @@ class Record:
             return None
 
         today = datetime.now()
-        birthday_date = datetime(self.birthday.value.day, self.birthday.value.month, self.birthday.value.year)
+        birthday_date = datetime.strptime(self.birthday.value, '%d-%m-%Y')
 
         if today > birthday_date:
-            next_birthday = datetime(self.birthday.value.day, self.birthday.value.month, self.birthday.value.year + 1)
+            next_birthday = birthday_date.replace(year=today.year + 1)
         else:
-            next_birthday = birthday_date
+            next_birthday = birthday_date.replace(year=today.year)
 
         days_left = (next_birthday - today).days
         return days_left
@@ -109,3 +115,22 @@ class AddressBook(UserDict):
         records = list(self.data.values())
         for i in range(0, len(records), num_of_records):
             yield records[i:i + num_of_records]
+
+    def save_to_file(self, file_name):
+        with open(file_name, 'wb') as fh:
+            pickle.dump(self.data, fh)
+
+    def load_from_file(self, file_name):
+        with open(file_name, 'rb') as fh:
+            self.data = pickle.load(fh)
+
+    def search(self, value):
+        results = []
+        for record in self.data.values():
+            if value.lower() in record.name.value.lower():
+                results.append(record)
+            for phone in record.phones:
+                if value in phone.value:
+                    results.append(record)
+                    break
+        return results
